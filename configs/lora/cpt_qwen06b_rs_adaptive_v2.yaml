@@ -1,0 +1,69 @@
+# Per-layer / per-module LoRA rank plan for CPT of Qwen3-0.6B-Base (28 layers, 0-27), SFT-conflict-aware.
+#   python -m cpt_trainer.lora_plan configs/lora/cpt_qwen06b_rs_adaptive_v2.yaml
+#   python -m cpt_trainer.train --lora-config configs/lora/cpt_qwen06b_rs_adaptive_v2.yaml ...
+# Format: see configs/lora/cpt_qwen06b_rs_adaptive_v1.yaml.
+#
+# Changes vs v1: ranks are cut where the r64 CPT adapter (runs/cpt_qwen06b_r64_300mb/epoch1) pushed AGAINST
+# the SFT delta (Qwen3-0.6B-Base -> Qwen3-0.6B). Conflict = z-score of cos(ΔW_cpt, ΔW_sft) against a
+# mismatched-layer null; z < -3 is clearly opposite, -3..-2 leaning opposite (see the "direction" section of
+# runs/cpt_qwen06b_r64_300mb/epoch1_adapter_weight_diff.html). Rules used:
+#   z < -3 in a layer band        -> rank at or below the r64 run's 64 (48-64 for MLP, 32-48 for attention)
+#   SFT-peak layers (14-18), no conflict -> no 256, capped at 192 as a hedge
+#   no conflict, outside the SFT peak     -> v1 ranks (capacity for domain knowledge)
+# A large SFT change in a layer is not a conflict by itself: gate_proj changed most under SFT in layers 13-20
+# (16-18 %), yet the CPT update there was unrelated to it (|z| <= 1.7, sign agreement 41-62 %, subspace
+# overlap 1.0x random). up_proj in the same layers is the real conflict (mean z -2.8 over L11-18, L15 z = -6.1).
+# Note: a smaller rank limits how far CPT can move these weights; it does not change the direction it moves
+# them in. Watch the SFT validation loss (eval task val_loss) at every eval point.
+
+name: rs_adaptive_v2
+method: rslora
+alpha: 16          # rslora: scale 2.0 at r=64, 1.41 at r=128, 1.0 at r=256
+dropout: 0.05
+default_r: 64
+rank_bounds: [32, 256]
+targets: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+
+ranks:
+  # --- self-attention ---
+  # q_proj: z < -3 in L12, L16, L22; leaning opposite through L11-17.
+  q_proj:
+    - {layers: "0-2", r: 32}
+    - {layers: "3-10,18-21,23-27", r: 64}
+    - {layers: "11-17,22", r: 48}
+  # k_proj: z = -3.2 in L17, -2.1/-2.2 in L12-13.
+  k_proj:
+    - {layers: "0-2,11-17", r: 32}
+    - {layers: "3-10,18-27", r: 48}
+  # v_proj: z < -3 in L12, L16, L17 (strongest attention conflict band).
+  v_proj:
+    - {layers: "0-2,11-17", r: 32}
+    - {layers: "3-10,18-27", r: 48}
+  # o_proj: z = -3.3 in L14, -2.4..-2.7 in L11, L13, L17.
+  o_proj:
+    - {layers: "0-2", r: 32}
+    - {layers: "11-17", r: 48}
+    - {layers: "3-10,18-27", r: 96}
+
+  # --- MLP ---
+  # gate_proj: no conflict anywhere (max |z| 2.3), change grew with depth -> keeps the most rank, but no 256
+  # inside the SFT peak (14-18).
+  gate_proj:
+    - {layers: "0-3", r: 96}
+    - {layers: "4-7", r: 128}
+    - {layers: "8-18", r: 192}
+    - {layers: "19-26", r: 256}
+    - {layers: "27", r: 128}
+  # up_proj: the main MLP conflict. z = -3.0, -3.1, -2.3, -2.8, -6.1, -2.5 in L11-16, sign agreement down to 21 %.
+  up_proj:
+    - {layers: "0-7", r: 128}
+    - {layers: "8-10,17-26", r: 192}
+    - {layers: "11-16", r: 64}
+    - {layers: "27", r: 128}
+  # down_proj: z = -3.2 in L12, -2.3 in L15; otherwise unrelated to SFT and the most rank-hungry module.
+  down_proj:
+    - {layers: "0-2", r: 96}
+    - {layers: "3-11,16-25", r: 192}
+    - {layers: "12-15", r: 96}
+    - {layers: "26", r: 128}
+    - {layers: "27", r: 32}

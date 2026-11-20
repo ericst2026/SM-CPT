@@ -1,0 +1,26 @@
+# Retrieval database for the RETRO-fit experiment: every AI document we have locally (2026-11-11).
+#   python -m cpt_trainer.retro.db configs/retro/db_ai_v1.yaml            # -> cpt_data/retro_db/ai_v1
+# Pools (Qwen3 tokens, cpt_data/scores/*.token_counts.json and the corpus reports):
+#   fineweb_edu AI label           1.89 B  (1.89 M docs)
+#   nemotron_cc AI label           3.72 B  (5.30 M docs), of which Translated-Diverse-QA ~0.96 B is left out (its AI
+#                                          labels are inflated, see cpt_data/corpus_web/PLAN.md) -> ~2.76 B
+#   corpus_full/ai                 ~0.9 B  (584 k docs; fineweb / nemotron AI docs of the earlier pipeline, mostly
+#                                          duplicates of the pools above -> removed by the doc-key / text-hash dedupe)
+#   corpus_ai_extra/xtra_ai        ~0.13 B (194 k docs: SFT AI answers as text, genesis_ml prose)
+# web_ai (the training corpus) is a 40 % sample of the two labelled pools, so it is fully contained.
+# Expected after dedupe / decontamination: ~4.8 B tokens, ~75 M chunks of 64 tokens.
+name: ai_v1
+out_dir: cpt_data/retro_db/ai_v1
+tokenizer: models/Qwen3-0.6B-Base
+chunk_len: 64
+min_chunk_tokens: 16        # the last, shorter chunk of a document is kept as a key if it has >= this many tokens
+min_chars: 200
+decontaminate: true         # drop documents sharing a rare 13-gram with an eval / validation item (cpt_trainer/decontaminate.py)
+max_train_df: 5             # ... ignoring 13-grams found in more than this many database documents (boilerplate)
+parquet_trees:
+  - {dir: cpt_data/corpus_ai_fineweb_large, scores: cpt_data/scores/corpus_ai_fineweb_large, labels: [AI]}
+  - {dir: cpt_data/corpus_ai_nemotron_large, scores: cpt_data/scores/corpus_ai_nemotron_large, labels: [AI],
+     exclude_subsets: [Translated-Diverse-QA]}
+corpus_dirs:
+  - cpt_data/corpus_full/ai
+  - cpt_data/corpus_ai_extra/xtra_ai

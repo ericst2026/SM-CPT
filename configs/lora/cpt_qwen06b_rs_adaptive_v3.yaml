@@ -1,0 +1,59 @@
+# LoRA rank plan for CPT of Qwen3-0.6B-Base (28 layers, 0-27): three layer bands x two module groups.
+#   python -m cpt_trainer.lora_plan configs/lora/cpt_qwen06b_rs_adaptive_v3.yaml
+#   python -m cpt_trainer.train --lora-config configs/lora/cpt_qwen06b_rs_adaptive_v3.yaml ...
+# Format: see configs/lora/cpt_qwen06b_rs_adaptive_v1.yaml.
+#
+# Principles (general, not per-layer fitting to the small r64 adapter):
+#   1. MLP stores knowledge -> it gets the rank budget. Attention mostly carries syntax / linguistic structure,
+#      which the base model already has -> small ranks.
+#   2. Give CPT less room where SFT needs the weights. The SFT delta (Qwen3-0.6B-Base -> Qwen3-0.6B) per band:
+#
+#        band          SFT change (rel. Frobenius)      r64 CPT vs SFT direction (mean z)
+#        begin  0-8     8.5-10.4 %  (lowest)           ~0, no conflict
+#        middle 9-19   12.2-16.6 %  (peak)             -0.6 to -2.5, every module leans opposite
+#        end   20-27   11.3-15.6 %  (high)             ~0, no conflict
+#
+#      begin = safest place for domain knowledge (also lexical / terminology features); middle = SFT's core,
+#      smallest ranks; end = SFT-heavy but not in conflict, medium-high ranks.
+#   3. k/v have only 1024 output rows (8 KV heads) -> a step below q/o.
+
+name: rs_adaptive_v3
+method: rslora
+alpha: 16          # rslora: scale 2.0 at r=64, 1.41 at r=128, 1.15 at r=192, 1.0 at r=256
+dropout: 0.05
+default_r: 64
+rank_bounds: [32, 256]
+targets: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+
+ranks:
+  # --- self-attention ---           begin    middle   end
+  q_proj:
+    - {layers: "0-8", r: 64}
+    - {layers: "9-19", r: 32}
+    - {layers: "20-27", r: 48}
+  o_proj:
+    - {layers: "0-8", r: 64}
+    - {layers: "9-19", r: 32}
+    - {layers: "20-27", r: 48}
+  k_proj:
+    - {layers: "0-8", r: 48}
+    - {layers: "9-19", r: 32}
+    - {layers: "20-27", r: 32}
+  v_proj:
+    - {layers: "0-8", r: 48}
+    - {layers: "9-19", r: 32}
+    - {layers: "20-27", r: 32}
+
+  # --- MLP ---
+  gate_proj:
+    - {layers: "0-8", r: 256}
+    - {layers: "9-19", r: 128}
+    - {layers: "20-27", r: 192}
+  up_proj:
+    - {layers: "0-8", r: 192}
+    - {layers: "9-19", r: 64}
+    - {layers: "20-27", r: 128}
+  down_proj:
+    - {layers: "0-8", r: 192}
+    - {layers: "9-19", r: 64}
+    - {layers: "20-27", r: 128}

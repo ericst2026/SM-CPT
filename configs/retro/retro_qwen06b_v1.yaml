@@ -1,0 +1,15 @@
+# RETRO layers for Qwen3-0.6B-Base (28 decoder layers, d=1024), cpt_trainer/retro/model.py. Rationale and sources:
+# docs/retro_fit_lora_cpt.md.
+chunk_len: 64          # RETRO / Megatron-Retro / Retro-li all use 64 (never ablated)
+neighbours: 2          # k in training: k=1 is clearly worse, k=4 costs more for little gain (RETRO Table 13)
+nbr_len: 128           # neighbour chunk N (64) + its continuation F (64); F carries most of the gain
+# CCA after decoder blocks 5, 8, ..., 26 (0-indexed) = "every 3rd layer from layer 6" (1-indexed), the RETRO-fitting
+# placement; 8 layers. The encoder is conditioned on the decoder states entering the first CCA layer.
+cca_layers: [5, 8, 11, 14, 17, 20, 23, 26]
+enc_layers: 2          # RETRO: 2 (a 6-layer encoder gave -0.15 % loss for +20 % time)
+enc_dim: 512           # RETRO uses 896 at every model size; 512 keeps the new modules at ~23 M params
+enc_heads: 8
+enc_ffn: 1536
+cca_heads: 8
+cca_head_dim: 64       # CCA inner width 512 (the decoder's self-attention is 16 x 128 = 2048)
+dropout: 0.0

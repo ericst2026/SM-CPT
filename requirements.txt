@@ -1,0 +1,13 @@
+# data pipeline (collect -> split -> build)
+torch>=2.1
+transformers>=4.40
+datasets>=2.19
+huggingface_hub>=0.23
+hf_xet
+pyarrow>=14
+sentencepiece
+tqdm
+
+# RETRO-fit pipeline (cpt_trainer/retro): nearest-neighbour index; installed with --no-deps (needs only numpy)
+faiss-cpu>=1.8
+pyyaml

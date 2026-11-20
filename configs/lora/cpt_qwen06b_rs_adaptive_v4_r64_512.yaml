@@ -1,0 +1,57 @@
+# rs_adaptive_v1_d0 (configs/lora/cpt_qwen06b_rs_adaptive_v1_d0.yaml, ranks 32-256) with EVERY rank doubled: 64-512.
+# Requested 2026-11-03 for the 10 B-token run (4 B AI + 2 B near-AI + 4 B replay). Same method (rslora), alpha, dropout,
+# targets and layer bands as v1_d0; only the ranks change. The per-layer rationale is in v1_d0.
+#   python -m cpt_trainer.lora_plan configs/lora/cpt_qwen06b_rs_adaptive_v4_r64_512.yaml
+
+name: rs_adaptive_v4_r64_512
+method: rslora
+alpha: 16          # rslora scale = alpha/sqrt(r): 1.41 at r=128, 1.0 at r=256, 0.71 at r=512 (same alpha as rs_adaptive_long)
+dropout: 0.0        # same as rs_adaptive_v1_d0
+default_r: 128
+rank_bounds: [64, 512]
+targets: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+
+ranks:
+  # --- self-attention: moderate. Knowledge from CPT lands mostly in the MLP. ---
+  # Layers 0-2: the r64 update was concentrated (29-36 of 64 directions held 90 % of its energy, top-8
+  # directions 50-72 %), so 32 is enough there.
+  q_proj:
+    - {layers: "0-2", r: 64}
+    - {layers: "3-27", r: 128}
+  # k/v: fewest directions used of all modules (~40/64 for 90 %) and only 1024 output rows (8 KV heads).
+  # v_proj in 11-17 pushed against the SFT delta (z < -3 in L12, L16, L17): keep it small there.
+  k_proj:
+    - {layers: "0-2", r: 64}
+    - {layers: "3-27", r: 96}
+  v_proj:
+    - {layers: "0-2", r: 64}
+    - {layers: "3-10,18-27", r: 96}
+    - {layers: "11-17", r: 64}
+  # o_proj: flat spectrum in layers 3-27 (46-49 of 64 for 90 %) -> more rank, except the 11-17 band that
+  # opposed SFT (o_proj L14 z = -3.3).
+  o_proj:
+    - {layers: "0-2", r: 64}
+    - {layers: "3-10,18-27", r: 192}
+    - {layers: "11-17", r: 128}
+
+  # --- MLP: where the budget goes ---
+  # gate_proj is the only module whose change grew with depth (2.0 % -> 3.2 %, peak 15-26), with a flat
+  # spectrum: give the upper-middle stack the maximum rank.
+  gate_proj:
+    - {layers: "0-3", r: 192}
+    - {layers: "4-7", r: 256}
+    - {layers: "8-14", r: 384}
+    - {layers: "15-26", r: 512}
+    - {layers: "27", r: 256}
+  # up_proj: flattest spectrum together with down_proj (45-48 of 64 for 90 %, top-8 only ~30 %).
+  up_proj:
+    - {layers: "0-7", r: 256}
+    - {layers: "8-26", r: 384}
+    - {layers: "27", r: 256}
+  # down_proj: 46-50 of 64 for 90 % in layers 3-25 (most rank-hungry module). Layer 2 changed least and
+  # layer 27 was the most concentrated matrix of the adapter (28 of 64 for 90 %, top-8 72 %).
+  down_proj:
+    - {layers: "0-2", r: 192}
+    - {layers: "3-25", r: 384}
+    - {layers: "26", r: 256}
+    - {layers: "27", r: 64}

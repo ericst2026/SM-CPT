@@ -1,0 +1,10 @@
+data
+models
+**/__pycache__
+eval_results
+runscorpus
+.env
+corpus
+cpt_data
+eval_logs
+runs

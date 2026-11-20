@@ -1,0 +1,46 @@
+# rs_adaptive_v1_d0 at half the rank (= rs_adaptive_q4 x 2): same per-layer / per-module shape (see
+# configs/lora/cpt_qwen06b_rs_adaptive_v1_d0.yaml for why each module gets its rank), every rank / 2, so 32-256 -> 16-128.
+#   python -m cpt_trainer.lora_plan configs/lora/cpt_qwen06b_rs_adaptive_q2.yaml
+#
+# Same ~100 M-token CPT as cpt_qwen06b_rs_adaptive_q4_100m, which kept MMLU flat but scored lower than r64_300mb on
+# machine_learning and the MCQ set: twice the capacity, to see whether the AI-domain scores come back.
+
+name: rs_adaptive_q2
+method: rslora
+alpha: 16          # kept from rs_adaptive_v1_d0: rslora scale alpha/sqrt(r) keeps the update size independent of
+                   # rank, so only the capacity changes. Scale 1.41 at r=128, 2.0 at r=64 (= r64/alpha128), 2.83 at r=32, 4.0 at r=16
+dropout: 0.0
+default_r: 32
+rank_bounds: [16, 128]
+targets: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+
+ranks:
+  q_proj:
+    - {layers: "0-2", r: 16}
+    - {layers: "3-27", r: 32}
+  k_proj:
+    - {layers: "0-2", r: 16}
+    - {layers: "3-27", r: 24}
+  v_proj:
+    - {layers: "0-2", r: 16}
+    - {layers: "3-10,18-27", r: 24}
+    - {layers: "11-17", r: 16}
+  o_proj:
+    - {layers: "0-2", r: 16}
+    - {layers: "3-10,18-27", r: 48}
+    - {layers: "11-17", r: 32}
+  gate_proj:
+    - {layers: "0-3", r: 48}
+    - {layers: "4-7", r: 64}
+    - {layers: "8-14", r: 96}
+    - {layers: "15-26", r: 128}
+    - {layers: "27", r: 64}
+  up_proj:
+    - {layers: "0-7", r: 64}
+    - {layers: "8-26", r: 96}
+    - {layers: "27", r: 64}
+  down_proj:
+    - {layers: "0-2", r: 48}
+    - {layers: "3-25", r: 96}
+    - {layers: "26", r: 64}
+    - {layers: "27", r: 16}

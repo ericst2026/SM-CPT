@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rs_adaptive vs rs128 (0.5 epoch)</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #77756f;
+  --grid: #e1e0d9; --axis: #c3c2b7; --line: rgba(11,11,11,0.10);
+  --s0: #8f8d86; --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
+  --d0: #f0efec; --dg1: #cde2fb; --dg2: #86b6ef; --dg3: #256abf; --db1: #f8d3cf; --db2: #ee8f8b; --db3: #c63c3b;
+  --t-d0: #0b0b0b; --t-dg1: #0b0b0b; --t-dg2: #0b0b0b; --t-dg3: #ffffff; --t-db1: #0b0b0b; --t-db2: #0b0b0b; --t-db3: #ffffff;
+  --note: #f3f1ea; --good: #006300; --hl: #f3f1ea;
+  --f-body: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #95938c;
+  --grid: #2c2c2a; --axis: #4a4a46; --line: rgba(255,255,255,0.10);
+  --s0: #8a8881; --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+  --d0: #2b2b29; --dg1: #183456; --dg2: #1f5596; --dg3: #4a8fe0; --db1: #4a2423; --db2: #93332f; --db3: #e06362;
+  --t-d0: #f0efec; --t-dg1: #f0efec; --t-dg2: #ffffff; --t-dg3: #0b0b0b; --t-db1: #f0efec; --t-db2: #ffffff; --t-db3: #0b0b0b;
+  --note: #222220; --good: #0ca30c; --hl: #222220;
+} }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #95938c;
+  --grid: #2c2c2a; --axis: #4a4a46; --line: rgba(255,255,255,0.10);
+  --s0: #8a8881; --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+  --d0: #2b2b29; --dg1: #183456; --dg2: #1f5596; --dg3: #4a8fe0; --db1: #4a2423; --db2: #93332f; --db3: #e06362;
+  --t-d0: #f0efec; --t-dg1: #f0efec; --t-dg2: #ffffff; --t-dg3: #0b0b0b; --t-db1: #f0efec; --t-db2: #ffffff; --t-db3: #0b0b0b;
+  --note: #222220; --good: #0ca30c; --hl: #222220;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.55 var(--f-body); }
+main { max-width: 1080px; margin: 0 auto; padding: 40px 24px 80px; }
+@media (max-width: 640px) { main { padding: 24px 16px 60px; } }
+.eyebrow { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
+h1 { font-size: clamp(26px, 4vw, 34px); line-height: 1.15; margin: 0 0 10px; font-weight: 650; letter-spacing: -0.01em; }
+.lede { color: var(--ink-2); max-width: 780px; margin: 0; }
+h2 { font-size: 20px; margin: 48px 0 6px; font-weight: 650; }
+h2 .num { color: var(--muted); font-weight: 500; margin-right: 6px; }
+.sec-lede { color: var(--ink-2); max-width: 800px; margin: 0 0 14px; }
+p { max-width: 800px; }
+code { font: 12.5px var(--f-mono); background: var(--note); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+.note { background: var(--note); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin: 20px 0 0; font-size: 14px; color: var(--ink-2); max-width: 900px; }
+.note strong { color: var(--ink); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+@media (max-width: 640px) { .card { padding: 14px 12px; } }
+.verdict { margin: 28px 0 0; }
+.verdict h2 { margin-top: 0; }
+.verdict ol { margin: 0; padding-left: 22px; }
+.verdict li { margin: 0 0 10px; max-width: 900px; }
+.verdict li:last-child { margin-bottom: 0; }
+.scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th, td { padding: 8px 10px; text-align: left; vertical-align: top; }
+thead th { font-weight: 600; color: var(--ink-2); border-bottom: 1px solid var(--axis); vertical-align: bottom; font-size: 12.5px; }
+tbody th { font-weight: 500; }
+tbody tr + tr > * { border-top: 1px solid var(--grid); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rowsub { display: block; color: var(--muted); font-size: 12px; font-weight: 400; }
+.mname { display: block; color: var(--ink); }
+.msub { display: block; color: var(--muted); font-weight: 400; font-size: 11.5px; }
+.delta { display: block; color: var(--muted); font-size: 12px; font-weight: 400; }
+.score td { min-width: 116px; font-size: 15px; }
+.score thead th:first-child { min-width: 200px; }
+.isbest { font-weight: 650; }
+.best { display: inline-block; margin-left: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--good); border: 1px solid currentColor; border-radius: 99px; padding: 0 6px; vertical-align: 2px; }
+.sig { color: var(--ink); font-weight: 700; }
+td.sigcell { font-weight: 650; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 7px; flex: none; }
+.sw.s0, .fill.s0 { background: var(--s0); fill: var(--s0); }
+.sw.s1, .fill.s1 { background: var(--s1); fill: var(--s1); }
+.sw.s2, .fill.s2 { background: var(--s2); fill: var(--s2); }
+.sw.s3, .fill.s3 { background: var(--s3); fill: var(--s3); }
+.sw.s4, .fill.s4 { background: var(--s4); fill: var(--s4); }
+.st.s1 { stroke: var(--s1); } .st.s2 { stroke: var(--s2); } .st.s3 { stroke: var(--s3); } .st.s4 { stroke: var(--s4); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--ink-2); margin: 0 0 10px; }
+.legend span { display: inline-flex; align-items: center; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+.chart-t { font-weight: 600; font-size: 14px; margin: 0 0 2px; }
+.chart-s { color: var(--muted); font-size: 12.5px; margin: 0 0 8px; }
+svg.chart { width: 100%; height: auto; display: block; overflow: visible; }
+svg .grid { stroke: var(--grid); stroke-width: 1; }
+svg .axis0 { stroke: var(--axis); stroke-width: 1.5; }
+svg .tick { fill: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+svg .lab { fill: var(--ink); font-size: 13px; }
+svg .val { fill: var(--ink); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+svg .valp { fill: var(--muted); font-weight: 400; font-size: 12px; }
+svg .sig { fill: var(--ink); }
+svg .ci { stroke-width: 2; stroke-linecap: round; }
+svg .dot { stroke: var(--surface); stroke-width: 2; }
+svg .hitbox { fill: transparent; }
+svg .hit:hover .hitbox { fill: var(--line); }
+.hmt th, .hmt td { white-space: nowrap; }
+.hmt td.hm { text-align: center; font-variant-numeric: tabular-nums; font-weight: 600; border: 2px solid var(--surface); border-radius: 6px; min-width: 110px; cursor: default; }
+.hmt tbody tr + tr > td.hm { border-top-color: var(--surface); }
+td.basecol { color: var(--ink-2); }
+td.meancol { color: var(--ink-2); font-weight: 600; }
+tr.sep > * { border-top: 1px solid var(--axis) !important; }
+tr.hl > th { background: var(--hl); border-radius: 6px; font-weight: 650; }
+.d0 { background: var(--d0); color: var(--t-d0); }
+.dg1 { background: var(--dg1); color: var(--t-dg1); } .dg2 { background: var(--dg2); color: var(--t-dg2); } .dg3 { background: var(--dg3); color: var(--t-dg3); }
+.db1 { background: var(--db1); color: var(--t-db1); } .db2 { background: var(--db2); color: var(--t-db2); } .db3 { background: var(--db3); color: var(--t-db3); }
+.dleg { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; font-size: 11.5px; margin: 10px 0 0; }
+.lg-cell { padding: 2px 8px; border-radius: 4px; font-variant-numeric: tabular-nums; }
+.dleg-end { color: var(--muted); padding: 0 6px; }
+.pairs td { min-width: 104px; }
+table.cfg td { font-size: 13px; min-width: 150px; }
+.small { font-size: 13.5px; color: var(--ink-2); }
+footer { margin-top: 56px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--grid); padding-top: 16px; }
+footer p { max-width: 900px; }
+#tip { position: fixed; pointer-events: none; z-index: 10; background: var(--surface); color: var(--ink); border: 1px solid var(--line); box-shadow: 0 6px 20px rgba(0,0,0,.14); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; line-height: 1.45; max-width: 320px; opacity: 0; transition: opacity .08s; font-variant-numeric: tabular-nums; }
+#tip b { display: block; font-weight: 600; margin-bottom: 2px; }
+#tip span { display: block; color: var(--ink-2); }
+@media (forced-colors: active) { .hm, .lg-cell { border: 1px solid CanvasText !important; } }
+
+.dpos { color: var(--good); font-weight: 600; }
+.dneg { color: var(--db3); font-weight: 600; }
+.dns { color: var(--ink-2); }
+.tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 0 7px; border-radius: 99px; border: 1px solid var(--axis); color: var(--ink-2); margin-left: 6px; }
+table.cmp td, table.cmp th { font-size: 13px; }
+table.cmp td:nth-child(2), table.cmp td:nth-child(3) { font-family: var(--f-mono); font-size: 12.5px; }
+details { margin: 14px 0 0; }
+summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
+.ranks td.num { min-width: 64px; }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <p class="eyebrow">Qwen3-0.6B-Base · continued pre-training with rsLoRA · half-epoch checkpoints</p>
+  <h1>rs_adaptive_long vs rs128_long at 0.5 epoch</h1>
+  <p class="lede">The two runs see the same ~460 M training tokens by their 0.5-epoch checkpoint. rs128_long uses a uniform rank of 128. rs_adaptive_long uses a per-layer, per-module rank plan with about the same number of parameters (79.1 M vs 80.7 M). This page compares their scores and lists every setting that matches or differs.</p>
+  <div class="note"><strong>Inputs.</strong> <code>runs/cpt_qwen06b_rs128_long/epoch0.5</code> (step 6,420) and <code>runs/cpt_qwen06b_rs_adaptive_long/epoch0.5</code> (step 2,395). Scores come from <code>eval_results/&lt;run&gt;_epoch0.5/</code>. Base scores come from <code>eval_results/cpt_qwen06b_r128_full_epoch0</code>, which both runs copy as their epoch-0 reference. Every Δ is paired over the same questions: MMLU, MCQ and DS-1000 use an exact McNemar test with a normal 95% CI; open QA uses a Wilcoxon signed-rank test. Colour means p &lt; 0.05. The losses have no per-item data, so they are plain differences.</div>
+</header>
+
+<section class="card verdict" style="margin-top:28px">
+  <h2>Bottom line</h2>
+  <ol>
+    <li><strong>At 0.5 epoch the two adapters can’t be told apart on MMLU.</strong> Both lose about 0.7 pt against base (−0.66 pt, p = 0.03; −0.70 pt, p = 0.03). Head to head, adaptive minus rs128 is −0.04 pt (p = 0.91), with 667 questions gained and 672 lost. So far, putting 78% of the rank budget into the MLP has not reduced forgetting.</li>
+    <li><strong>On the AI-related subjects, adaptive is ahead, but not significantly.</strong> rs128 drops 1.9 pt against base (p = 0.04). Adaptive drops 1.0 pt (p = 0.29). The gap between them is +0.9 pt (p = 0.25). Almost all of it comes from <code>machine_learning</code>: 35.7% → 44.6% (+8.9 pt, p = 0.02). That subject has only n = 112, and it is 1 of 57 subjects tested. It would not survive a multiple-comparison correction.</li>
+    <li><strong>MCQ and DS-1000 are a tie.</strong> rs128 gets 62/186 MCQ questions right and adaptive gets 59/186 (p = 0.55). Both pass about 1% of DS-1000.</li>
+    <li><strong>The losses match to the third decimal, even though adaptive made 2.7× fewer optimizer updates.</strong> CPT val losses differ by at most 0.003, and the SFT val loss is 1.5605 vs 1.5624. Adaptive reached the same per-token fit with 2,395 updates of ~187 k tokens, where rs128 used 6,420 updates of ~70 k tokens.</li>
+    <li><strong>The open-QA numbers can’t be compared across the two runs.</strong> rs128_long generated its open-QA answers from <em>Base</em> + adapter, which produced degenerate text (664/984 answers). rs_adaptive_long generated from the <em>chat</em> model Qwen3-0.6B + adapter. Against its own chat reference, the adaptive adapter left ROUGE-L and token-F1 unchanged and made answers 56 words shorter. A like-for-like comparison would need the rs128 epoch-0.5 adapter re-evaluated on the chat model (open_qa only, ~25 min of GPU time). That should wait until the current training run finishes.</li>
+    <li><strong>The comparison is confounded.</strong> Besides the rank plan, the adaptive run also changed gradient accumulation (3 → 8) and left out 148 noisy long documents (−4.6 M tokens, −0.5%). Any difference that does show up at epoch 1 can’t be credited to the rank plan alone.</li>
+  </ol>
+</section>
+
+<h2><span class="num">1</span>Scores</h2>
+<p class="sec-lede">Each Δ under a run is that run minus base. The last column is the head-to-head difference, adaptive minus rs128.</p>
+<div class="card scroll">
+<table class="score">
+<thead><tr><th>Metric</th><th class="num">Base</th><th class="num">rs128_long<br>ep 0.5</th><th class="num">Δ vs base</th><th class="num">rs_adaptive_long<br>ep 0.5</th><th class="num">Δ vs base</th><th class="num">Adaptive − rs128</th></tr></thead>
+<tbody>
+<tr><th><span class="mname">MMLU overall</span><span class="msub">57 subjects, 5-shot, n = 14,042</span></th><td class="num basecol">52.49%</td><td class="num">51.82%</td><td class="num"><span class="dneg">−0.66 pt</span><span class="delta">p = 0.03</span></td><td class="num">51.79%</td><td class="num"><span class="dneg">−0.70 pt</span><span class="delta">p = 0.03</span></td><td class="num"><span class="dns">−0.04 pt</span><span class="delta">95% CI −0.55 to +0.48 pt, p = 0.91</span></td></tr>
+<tr><th><span class="mname">MMLU AI-related subjects</span><span class="msub">11 subjects, n = 1,761</span></th><td class="num basecol">46.0%</td><td class="num">44.1%</td><td class="num"><span class="dneg">−1.93 pt</span><span class="delta">p = 0.04</span></td><td class="num">45.0%</td><td class="num"><span class="dns">−1.02 pt</span><span class="delta">p = 0.29</span></td><td class="num"><span class="dns">+0.91 pt</span><span class="delta">95% CI −0.53 to +2.35 pt, p = 0.25</span></td></tr>
+<tr><th><span class="mname">MMLU machine_learning</span><span class="msub">n = 112</span></th><td class="num basecol">36.6%</td><td class="num">35.7%</td><td class="num"><span class="dns">−0.89 pt</span><span class="delta">p = 1.00</span></td><td class="num">44.6%</td><td class="num"><span class="dns">+8.04 pt</span><span class="delta">p = 0.09</span></td><td class="num"><span class="dpos">+8.93 pt</span><span class="delta">95% CI +2.10 to +15.76 pt, p = 0.02</span></td></tr>
+<tr><th><span class="mname">MMLU · STEM</span><span class="msub">n = 3,018</span></th><td class="num basecol">49.8%</td><td class="num">48.1%</td><td class="num"><span class="dneg">−1.62 pt</span><span class="delta">p = 0.02</span></td><td class="num">48.5%</td><td class="num"><span class="dns">−1.26 pt</span><span class="delta">p = 0.06</span></td><td class="num"><span class="dns">+0.36 pt</span><span class="delta">95% CI −0.68 to +1.41 pt, p = 0.53</span></td></tr>
+<tr><th><span class="mname">MMLU · humanities</span><span class="msub">n = 4,705</span></th><td class="num basecol">45.1%</td><td class="num">44.6%</td><td class="num"><span class="dns">−0.51 pt</span><span class="delta">p = 0.35</span></td><td class="num">44.1%</td><td class="num"><span class="dns">−1.00 pt</span><span class="delta">p = 0.11</span></td><td class="num"><span class="dns">−0.49 pt</span><span class="delta">95% CI −1.51 to +0.54 pt, p = 0.37</span></td></tr>
+<tr><th><span class="mname">MMLU · other</span><span class="msub">n = 3,242</span></th><td class="num basecol">56.8%</td><td class="num">57.1%</td><td class="num"><span class="dns">+0.28 pt</span><span class="delta">p = 0.69</span></td><td class="num">57.6%</td><td class="num"><span class="dns">+0.77 pt</span><span class="delta">p = 0.20</span></td><td class="num"><span class="dns">+0.49 pt</span><span class="delta">95% CI −0.48 to +1.47 pt, p = 0.35</span></td></tr>
+<tr><th><span class="mname">MMLU · social sciences</span><span class="msub">n = 3,077</span></th><td class="num basecol">61.8%</td><td class="num">60.8%</td><td class="num"><span class="dns">−0.94 pt</span><span class="delta">p = 0.13</span></td><td class="num">60.5%</td><td class="num"><span class="dneg">−1.23 pt</span><span class="delta">p = 0.04</span></td><td class="num"><span class="dns">−0.29 pt</span><span class="delta">95% CI −1.23 to +0.65 pt, p = 0.59</span></td></tr>
+<tr><th><span class="mname">AI MCQ</span><span class="msub">in-domain, 5-shot, n = 186</span></th><td class="num basecol">29.6%</td><td class="num">33.3%</td><td class="num"><span class="dns">+3.76 pt</span><span class="delta">p = 0.25</span></td><td class="num">31.7%</td><td class="num"><span class="dns">+2.15 pt</span><span class="delta">p = 0.57</span></td><td class="num"><span class="dns">−1.61 pt</span><span class="delta">95% CI −5.11 to +1.88 pt, p = 0.55</span></td></tr>
+<tr><th><span class="mname">DS-1000 pass@1</span><span class="msub">env-valid problems, n = 828</span></th><td class="num basecol">0.4%</td><td class="num">0.8%</td><td class="num"><span class="dns">+0.48 pt</span><span class="delta">p = 0.34</span></td><td class="num">1.0%</td><td class="num"><span class="dns">+0.60 pt</span><span class="delta">p = 0.23</span></td><td class="num"><span class="dns">+0.12 pt</span><span class="delta">95% CI −0.80 to +1.04 pt, p = 1.00</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3 style="margin:28px 0 6px;font-size:16px">Losses (lower is better)</h3>
+<div class="card scroll">
+<table class="score">
+<thead><tr><th>Loss</th><th class="num">Base</th><th class="num">rs128_long</th><th class="num">Δ</th><th class="num">rs_adaptive_long</th><th class="num">Δ</th><th class="num">Adaptive − rs128</th></tr></thead>
+<tbody>
+<tr><th><span class="mname">SFT val loss</span><span class="msub">ai_qa answers, n = 1,000</span></th><td class="num basecol">1.6171</td><td class="num">1.5605</td><td class="num"><span class="dpos">−0.0566</span></td><td class="num">1.5624</td><td class="num"><span class="dpos">−0.0547</span></td><td class="num"><span class="dneg">+0.0019</span></td></tr>
+<tr><th><span class="mname">CPT val loss · ai</span><span class="msub">64 × 2,048-token blocks</span></th><td class="num basecol">2.5553</td><td class="num">2.5232</td><td class="num"><span class="dpos">−0.0321</span></td><td class="num">2.5214</td><td class="num"><span class="dpos">−0.0339</span></td><td class="num"><span class="dpos">−0.0019</span></td></tr>
+<tr><th><span class="mname">CPT val loss · replay</span><span class="msub">64 × 2,048-token blocks</span></th><td class="num basecol">2.7473</td><td class="num">2.7330</td><td class="num"><span class="dpos">−0.0143</span></td><td class="num">2.7304</td><td class="num"><span class="dpos">−0.0169</span></td><td class="num"><span class="dpos">−0.0026</span></td></tr>
+<tr><th><span class="mname">CPT val loss · stem</span><span class="msub">32 packed sequences</span></th><td class="num basecol">1.1445</td><td class="num">0.9879</td><td class="num"><span class="dpos">−0.1566</span></td><td class="num">0.9881</td><td class="num"><span class="dpos">−0.1563</span></td><td class="num"><span class="dns">+0.0003</span></td></tr>
+<tr><th><span class="mname">CPT val loss · long</span><span class="msub">32 packed sequences</span></th><td class="num basecol">1.5761</td><td class="num">1.5650</td><td class="num"><span class="dpos">−0.0111</span></td><td class="num">1.5631</td><td class="num"><span class="dpos">−0.0130</span></td><td class="num"><span class="dpos">−0.0019</span></td></tr>
+<tr><th><span class="mname">Train loss</span><span class="msub">mean over the first half-epoch</span></th><td class="num basecol">–</td><td class="num">2.0772</td><td></td><td class="num">2.0819</td><td></td><td class="num"><span class="dneg">+0.0047</span></td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Both runs score CPT val loss on the same held-out sets: the same train/val document split, and the same legacy fixed blocks for ai and replay. The excluded noisy documents only left the training side.</p>
+
+<h3 style="margin:28px 0 6px;font-size:16px">Open QA: each run against the model it generated with</h3>
+<div class="card scroll">
+<table class="score">
+<thead><tr><th>Metric (n = 984)</th><th class="num">Base</th><th class="num">rs128_long<br>(Base + adapter)</th><th class="num">Δ</th><th class="num">Qwen3-0.6B chat</th><th class="num">rs_adaptive_long<br>(chat + adapter)</th><th class="num">Δ</th></tr></thead>
+<tbody>
+<tr><th>ROUGE-L</th><td class="num basecol">0.0418</td><td class="num">0.0093</td><td class="num"><span class="dneg">−0.0324</span><span class="delta">p &lt; 0.001</span></td><td class="num basecol">0.1700</td><td class="num">0.1696</td><td class="num"><span class="dns">−0.0004</span><span class="delta">p = 0.16</span></td></tr>
+<tr><th>token-F1</th><td class="num basecol">0.0651</td><td class="num">0.0142</td><td class="num"><span class="dneg">−0.0509</span><span class="delta">p &lt; 0.001</span></td><td class="num basecol">0.3203</td><td class="num">0.3201</td><td class="num"><span class="dns">−0.0002</span><span class="delta">p = 0.18</span></td></tr>
+<tr><th>level fit</th><td class="num basecol">29.8%</td><td class="num">7.7%</td><td class="num"><span class="dneg">−22.11 pt</span><span class="delta">p &lt; 0.001</span></td><td class="num basecol">64.0%</td><td class="num">63.4%</td><td class="num"><span class="dns">−0.62 pt</span><span class="delta">p = 0.71</span></td></tr>
+<tr><th>answer length (words)</th><td class="num basecol">334</td><td class="num">362</td><td class="num"><span class="dns">+28</span><span class="delta">p &lt; 0.001</span></td><td class="num basecol">349</td><td class="num">293</td><td class="num"><span class="dns">−56</span><span class="delta">p &lt; 0.001</span></td></tr>
+<tr><th>degenerate answers<span class="msub">empty, or Flesch–Kincaid grade &gt; 40</span></th><td class="num basecol">133</td><td class="num">664</td><td></td><td class="num basecol">16</td><td class="num">18</td><td></td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Level fit only counts answers that have a readability grade, so its n is smaller (rs128 pairs: 285; adaptive pairs: 969).</p>
+
+<details>
+<summary>MMLU by subject, sorted by adaptive − rs128 (24 subjects up, 25 down, 8 equal)</summary>
+<div class="card scroll" style="margin-top:10px">
+<table class="score">
+<thead><tr><th>Subject</th><th>Category</th><th class="num">n</th><th class="num">Base</th><th class="num">rs128</th><th class="num">Adaptive</th><th class="num">Adaptive − rs128</th><th class="num">McNemar</th></tr></thead>
+<tbody>
+<tr><th>college_computer_science<span class="tag">AI</span></th><td>STEM</td><td class="num">100</td><td class="num basecol">43.0%</td><td class="num">43.0%</td><td class="num">38.0%</td><td class="num"><span class="dns">−5.0 pt</span></td><td class="num">p = 0.27</td></tr>
+<tr><th>public_relations</th><td>social sciences</td><td class="num">110</td><td class="num basecol">60.9%</td><td class="num">60.9%</td><td class="num">56.4%</td><td class="num"><span class="dns">−4.5 pt</span></td><td class="num">p = 0.12</td></tr>
+<tr><th>global_facts</th><td>other</td><td class="num">100</td><td class="num basecol">37.0%</td><td class="num">37.0%</td><td class="num">34.0%</td><td class="num"><span class="dns">−3.0 pt</span></td><td class="num">p = 0.38</td></tr>
+<tr><th>high_school_computer_science<span class="tag">AI</span></th><td>STEM</td><td class="num">100</td><td class="num basecol">61.0%</td><td class="num">60.0%</td><td class="num">57.0%</td><td class="num"><span class="dns">−3.0 pt</span></td><td class="num">p = 0.45</td></tr>
+<tr><th>moral_scenarios</th><td>humanities</td><td class="num">895</td><td class="num basecol">26.1%</td><td class="num">26.3%</td><td class="num">23.6%</td><td class="num"><span class="dns">−2.7 pt</span></td><td class="num">p = 0.17</td></tr>
+<tr><th>high_school_microeconomics</th><td>social sciences</td><td class="num">238</td><td class="num basecol">63.4%</td><td class="num">65.1%</td><td class="num">62.6%</td><td class="num"><span class="dns">−2.5 pt</span></td><td class="num">p = 0.31</td></tr>
+<tr><th>international_law</th><td>humanities</td><td class="num">121</td><td class="num basecol">66.1%</td><td class="num">70.2%</td><td class="num">67.8%</td><td class="num"><span class="dns">−2.5 pt</span></td><td class="num">p = 0.38</td></tr>
+<tr><th>college_medicine</th><td>other</td><td class="num">173</td><td class="num basecol">52.6%</td><td class="num">53.8%</td><td class="num">51.4%</td><td class="num"><span class="dns">−2.3 pt</span></td><td class="num">p = 0.39</td></tr>
+<tr><th>high_school_european_history</th><td>humanities</td><td class="num">165</td><td class="num basecol">65.5%</td><td class="num">63.6%</td><td class="num">61.8%</td><td class="num"><span class="dns">−1.8 pt</span></td><td class="num">p = 0.55</td></tr>
+<tr><th>marketing</th><td>other</td><td class="num">234</td><td class="num basecol">79.5%</td><td class="num">79.9%</td><td class="num">78.2%</td><td class="num"><span class="dns">−1.7 pt</span></td><td class="num">p = 0.42</td></tr>
+<tr><th>high_school_world_history</th><td>humanities</td><td class="num">237</td><td class="num basecol">66.2%</td><td class="num">65.4%</td><td class="num">63.7%</td><td class="num"><span class="dns">−1.7 pt</span></td><td class="num">p = 0.48</td></tr>
+<tr><th>professional_psychology</th><td>social sciences</td><td class="num">612</td><td class="num basecol">51.5%</td><td class="num">49.8%</td><td class="num">48.2%</td><td class="num"><span class="dns">−1.6 pt</span></td><td class="num">p = 0.14</td></tr>
+<tr><th>anatomy</th><td>other</td><td class="num">135</td><td class="num basecol">46.7%</td><td class="num">45.9%</td><td class="num">44.4%</td><td class="num"><span class="dns">−1.5 pt</span></td><td class="num">p = 0.79</td></tr>
+<tr><th>high_school_biology</th><td>STEM</td><td class="num">310</td><td class="num basecol">71.0%</td><td class="num">66.5%</td><td class="num">65.2%</td><td class="num"><span class="dns">−1.3 pt</span></td><td class="num">p = 0.50</td></tr>
+<tr><th>high_school_government_and_politics</th><td>social sciences</td><td class="num">193</td><td class="num basecol">66.3%</td><td class="num">61.7%</td><td class="num">60.6%</td><td class="num"><span class="dns">−1.0 pt</span></td><td class="num">p = 0.77</td></tr>
+<tr><th>abstract_algebra</th><td>STEM</td><td class="num">100</td><td class="num basecol">35.0%</td><td class="num">39.0%</td><td class="num">38.0%</td><td class="num"><span class="dns">−1.0 pt</span></td><td class="num">p = 1.00</td></tr>
+<tr><th>college_chemistry</th><td>STEM</td><td class="num">100</td><td class="num basecol">48.0%</td><td class="num">50.0%</td><td class="num">49.0%</td><td class="num"><span class="dns">−1.0 pt</span></td><td class="num">p = 1.00</td></tr>
+<tr><th>computer_security<span class="tag">AI</span></th><td>STEM</td><td class="num">100</td><td class="num basecol">71.0%</td><td class="num">73.0%</td><td class="num">72.0%</td><td class="num"><span class="dns">−1.0 pt</span></td><td class="num">p = 1.00</td></tr>
+<tr><th>high_school_mathematics<span class="tag">AI</span></th><td>STEM</td><td class="num">270</td><td class="num basecol">38.5%</td><td class="num">37.4%</td><td class="num">36.7%</td><td class="num"><span class="dns">−0.7 pt</span></td><td class="num">p = 0.86</td></tr>
+<tr><th>college_biology</th><td>STEM</td><td class="num">144</td><td class="num basecol">60.4%</td><td class="num">57.6%</td><td class="num">56.9%</td><td class="num"><span class="dns">−0.7 pt</span></td><td class="num">p = 1.00</td></tr>
+<tr><th>philosophy</th><td>humanities</td><td class="num">311</td><td class="num basecol">55.3%</td><td class="num">53.7%</td><td class="num">53.1%</td><td class="num"><span class="dns">−0.6 pt</span></td><td class="num">p = 0.84</td></tr>
+<tr><th>logical_fallacies</th><td>humanities</td><td class="num">163</td><td class="num basecol">60.7%</td><td class="num">62.0%</td><td class="num">61.3%</td><td class="num"><span class="dns">−0.6 pt</span></td><td class="num">p = 1.00</td></tr>
+<tr><th>professional_law</th><td>humanities</td><td class="num">1534</td><td class="num basecol">37.7%</td><td class="num">37.5%</td><td class="num">37.1%</td><td class="num"><span class="dns">−0.4 pt</span></td><td class="num">p = 0.69</td></tr>
+<tr><th>moral_disputes</th><td>humanities</td><td class="num">346</td><td class="num basecol">57.5%</td><td class="num">54.3%</td><td class="num">54.0%</td><td class="num"><span class="dns">−0.3 pt</span></td><td class="num">p = 1.00</td></tr>
+<tr><th>high_school_macroeconomics</th><td>social sciences</td><td class="num">390</td><td class="num basecol">53.3%</td><td class="num">54.6%</td><td class="num">54.4%</td><td class="num"><span class="dns">−0.3 pt</span></td><td class="num">p = 1.00</td></tr>
+<tr><th>econometrics<span class="tag">AI</span></th><td>social sciences</td><td class="num">114</td><td class="num basecol">38.6%</td><td class="num">36.8%</td><td class="num">36.8%</td><td class="num"><span class="dns">+0.0 pt</span></td><td class="num">p = 1.00</td></tr>
+<tr><th>high_school_physics</th><td>STEM</td><td class="num">151</td><td class="num basecol">33.8%</td><td class="num">35.8%</td><td class="num">35.8%</td><td class="num"><span class="dns">+0.0 pt</span></td><td class="num">p = 1.00</td></tr>
+<tr><th>high_school_statistics<span class="tag">AI</span></th><td>STEM</td><td class="num">216</td><td class="num basecol">48.1%</td><td class="num">45.4%</td><td class="num">45.4%</td><td class="num"><span class="dns">+0.0 pt</span></td><td class="num">p = 1.00</td></tr>
+<tr><th>human_sexuality</th><td>social sciences</td><td class="num">131</td><td class="num basecol">59.5%</td><td class="num">61.1%</td><td class="num">61.1%</td><td class="num"><span class="dns">+0.0 pt</span></td><td class="num">p = 1.00</td></tr>
+<tr><th>management</th><td>other</td><td class="num">103</td><td class="num basecol">66.0%</td><td class="num">69.9%</td><td class="num">69.9%</td><td class="num"><span class="dns">+0.0 pt</span></td><td class="num">p = 1.00</td></tr>
+<tr><th>professional_medicine</th><td>other</td><td class="num">272</td><td class="num basecol">54.8%</td><td class="num">52.9%</td><td class="num">52.9%</td><td class="num"><span class="dns">+0.0 pt</span></td><td class="num">p = 1.00</td></tr>
+<tr><th>sociology</th><td>social sciences</td><td class="num">201</td><td class="num basecol">67.7%</td><td class="num">69.2%</td><td class="num">69.2%</td><td class="num"><span class="dns">+0.0 pt</span></td><td class="num">p = 1.00</td></tr>
+<tr><th>virology</th><td>other</td><td class="num">166</td><td class="num basecol">46.4%</td><td class="num">49.4%</td><td class="num">49.4%</td><td class="num"><span class="dns">+0.0 pt</span></td><td class="num">p = 1.00</td></tr>
+<tr><th>conceptual_physics</th><td>STEM</td><td class="num">235</td><td class="num basecol">49.4%</td><td class="num">46.8%</td><td class="num">47.2%</td><td class="num"><span class="dns">+0.4 pt</span></td><td class="num">p = 1.00</td></tr>
+<tr><th>high_school_chemistry</th><td>STEM</td><td class="num">203</td><td class="num basecol">53.2%</td><td class="num">49.8%</td><td class="num">50.2%</td><td class="num"><span class="dns">+0.5 pt</span></td><td class="num">p = 1.00</td></tr>
+<tr><th>high_school_psychology</th><td>social sciences</td><td class="num">545</td><td class="num basecol">76.1%</td><td class="num">73.4%</td><td class="num">74.1%</td><td class="num"><span class="dns">+0.7 pt</span></td><td class="num">p = 0.57</td></tr>
+<tr><th>miscellaneous</th><td>other</td><td class="num">783</td><td class="num basecol">61.0%</td><td class="num">62.1%</td><td class="num">62.8%</td><td class="num"><span class="dns">+0.8 pt</span></td><td class="num">p = 0.50</td></tr>
+<tr><th>college_physics</th><td>STEM</td><td class="num">102</td><td class="num basecol">35.3%</td><td class="num">32.4%</td><td class="num">33.3%</td><td class="num"><span class="dns">+1.0 pt</span></td><td class="num">p = 1.00</td></tr>
+<tr><th>business_ethics</th><td>other</td><td class="num">100</td><td class="num basecol">54.0%</td><td class="num">52.0%</td><td class="num">53.0%</td><td class="num"><span class="dns">+1.0 pt</span></td><td class="num">p = 1.00</td></tr>
+<tr><th>us_foreign_policy</th><td>social sciences</td><td class="num">100</td><td class="num basecol">68.0%</td><td class="num">68.0%</td><td class="num">69.0%</td><td class="num"><span class="dns">+1.0 pt</span></td><td class="num">p = 1.00</td></tr>
+<tr><th>high_school_geography</th><td>social sciences</td><td class="num">198</td><td class="num basecol">68.7%</td><td class="num">66.7%</td><td class="num">67.7%</td><td class="num"><span class="dns">+1.0 pt</span></td><td class="num">p = 0.83</td></tr>
+<tr><th>prehistory</th><td>humanities</td><td class="num">324</td><td class="num basecol">54.6%</td><td class="num">53.1%</td><td class="num">54.3%</td><td class="num"><span class="dns">+1.2 pt</span></td><td class="num">p = 0.50</td></tr>
+<tr><th>astronomy</th><td>STEM</td><td class="num">152</td><td class="num basecol">53.3%</td><td class="num">53.9%</td><td class="num">55.3%</td><td class="num"><span class="dns">+1.3 pt</span></td><td class="num">p = 0.69</td></tr>
+<tr><th>elementary_mathematics<span class="tag">AI</span></th><td>STEM</td><td class="num">378</td><td class="num basecol">45.5%</td><td class="num">42.6%</td><td class="num">43.9%</td><td class="num"><span class="dns">+1.3 pt</span></td><td class="num">p = 0.49</td></tr>
+<tr><th>human_aging</th><td>other</td><td class="num">223</td><td class="num basecol">51.6%</td><td class="num">55.2%</td><td class="num">56.5%</td><td class="num"><span class="dns">+1.3 pt</span></td><td class="num">p = 0.68</td></tr>
+<tr><th>clinical_knowledge</th><td>other</td><td class="num">265</td><td class="num basecol">62.3%</td><td class="num">59.2%</td><td class="num">60.8%</td><td class="num"><span class="dns">+1.5 pt</span></td><td class="num">p = 0.50</td></tr>
+<tr><th>nutrition</th><td>other</td><td class="num">306</td><td class="num basecol">59.2%</td><td class="num">61.1%</td><td class="num">62.7%</td><td class="num"><span class="dns">+1.6 pt</span></td><td class="num">p = 0.46</td></tr>
+<tr><th>high_school_us_history</th><td>humanities</td><td class="num">204</td><td class="num basecol">54.4%</td><td class="num">54.9%</td><td class="num">56.9%</td><td class="num"><span class="dns">+2.0 pt</span></td><td class="num">p = 0.48</td></tr>
+<tr><th>medical_genetics</th><td>other</td><td class="num">100</td><td class="num basecol">63.0%</td><td class="num">57.0%</td><td class="num">59.0%</td><td class="num"><span class="dns">+2.0 pt</span></td><td class="num">p = 0.77</td></tr>
+<tr><th>formal_logic<span class="tag">AI</span></th><td>humanities</td><td class="num">126</td><td class="num basecol">36.5%</td><td class="num">31.0%</td><td class="num">33.3%</td><td class="num"><span class="dns">+2.4 pt</span></td><td class="num">p = 0.51</td></tr>
+<tr><th>professional_accounting</th><td>other</td><td class="num">282</td><td class="num basecol">41.1%</td><td class="num">40.1%</td><td class="num">42.9%</td><td class="num"><span class="dns">+2.8 pt</span></td><td class="num">p = 0.18</td></tr>
+<tr><th>world_religions</th><td>humanities</td><td class="num">171</td><td class="num basecol">57.3%</td><td class="num">58.5%</td><td class="num">61.4%</td><td class="num"><span class="dns">+2.9 pt</span></td><td class="num">p = 0.38</td></tr>
+<tr><th>college_mathematics<span class="tag">AI</span></th><td>STEM</td><td class="num">100</td><td class="num basecol">36.0%</td><td class="num">35.0%</td><td class="num">38.0%</td><td class="num"><span class="dns">+3.0 pt</span></td><td class="num">p = 0.58</td></tr>
+<tr><th>security_studies</th><td>social sciences</td><td class="num">245</td><td class="num basecol">63.3%</td><td class="num">62.0%</td><td class="num">65.3%</td><td class="num"><span class="dns">+3.3 pt</span></td><td class="num">p = 0.08</td></tr>
+<tr><th>electrical_engineering<span class="tag">AI</span></th><td>STEM</td><td class="num">145</td><td class="num basecol">60.7%</td><td class="num">57.9%</td><td class="num">62.1%</td><td class="num"><span class="dns">+4.1 pt</span></td><td class="num">p = 0.11</td></tr>
+<tr><th>jurisprudence</th><td>humanities</td><td class="num">108</td><td class="num basecol">60.2%</td><td class="num">61.1%</td><td class="num">65.7%</td><td class="num"><span class="dns">+4.6 pt</span></td><td class="num">p = 0.06</td></tr>
+<tr><th>machine_learning<span class="tag">AI</span></th><td>STEM</td><td class="num">112</td><td class="num basecol">36.6%</td><td class="num">35.7%</td><td class="num">44.6%</td><td class="num"><span class="dpos">+8.9 pt</span></td><td class="num">p = 0.02</td></tr>
+</tbody>
+</table>
+</div>
+</details>
+
+<h2><span class="num">2</span>Settings that differ</h2>
+<div class="card scroll">
+<table class="cmp">
+<thead><tr><th>Setting</th><th>rs128_long</th><th>rs_adaptive_long</th><th>What it changes</th></tr></thead>
+<tbody>
+<tr><th>LoRA ranks</th><td>uniform r = 128 (<code>--r 128</code>)</td><td>per-layer / per-module plan, r 32–256 (<code>configs/lora/cpt_qwen06b_rs_adaptive_v1_d0.yaml</code>)</td><td>Moves rank from attention into the MLP, and from layers 0–2 and 27 into the middle of the stack. See the table below.</td></tr>
+<tr><th>Trainable parameters</th><td>80,740,352</td><td>79,134,720</td><td>−1.6 M (−2.0%). The budget is about the same.</td></tr>
+<tr><th>rsLoRA scale α/√r</th><td>1.41 on every module</td><td>2.83 (r32) … 1.41 (r128) … 1.00 (r256)</td><td>Same α = 16. Smaller-rank modules get a larger scale.</td></tr>
+<tr><th>Target spec</th><td><code>all-linear</code></td><td>explicit q, k, v, o, gate, up, down</td><td>Nothing: <code>all-linear</code> resolves to the same 7 projections in Qwen3. The parameter count of 80,740,352 = 128 × Σ(in+out) × 28 confirms it.</td></tr>
+<tr><th>Gradient accumulation</th><td>3</td><td>8</td><td>About 70 k → 187 k tokens per optimizer update. Micro-batch and peak memory are unchanged.</td></tr>
+<tr><th>Optimizer steps per epoch</th><td>12,841</td><td>4,790</td><td>2.7× fewer updates at the same peak LR. The 0.5-epoch eval comes at step 6,420 vs 2,395.</td></tr>
+<tr><th>Warmup (3% of steps)</th><td>~385 steps ≈ 27 M tokens</td><td>~144 steps ≈ 27 M tokens</td><td>Same length in tokens.</td></tr>
+<tr><th>Excluded training docs</th><td>none</td><td>148 of 151 listed in <code>configs/corpus/corpus_full_exclude_noisy_long.txt</code></td><td>−20 ai, −35 long, −93 stem documents (all long, noisy ones).</td></tr>
+<tr><th>Training tokens / sequences per epoch</th><td>902,184,233 / 38,522</td><td>897,618,173 / 38,320</td><td>−4.57 M tokens (−0.5%).</td></tr>
+<tr><th>Open-QA eval model</th><td>Qwen3-0.6B-Base + adapter</td><td>Qwen3-0.6B (chat) + adapter (<code>--eval-chat-model</code>)</td><td>Makes the open-QA scores incomparable between the runs. MMLU, MCQ, code and val loss stay on Base in both.</td></tr>
+<tr><th>Logging / save interval</th><td>25 / 500 steps</td><td>10 / 250 steps</td><td>None on results. Both are ~1.8 M tokens per log line.</td></tr>
+<tr><th><code>--bs</code> as passed</th><td>2 (the trainer forced it to 1)</td><td>1</td><td>None. Varlen packing always uses one packed sequence per device step.</td></tr>
+<tr><th>Measured throughput</th><td>~6.4 k tok/s (20.1 h to 0.5 ep)</td><td>~3.0 k tok/s (40.5 h to 0.5 ep)</td><td>The GPU is shared with the chat app, so this isn’t a controlled measurement. It doesn’t affect the scores.</td></tr>
+<tr><th>Grad norm near 0.5 ep</th><td>~0.15</td><td>~0.10</td><td>Expected with a larger effective batch (less gradient noise).</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3 style="margin:28px 0 6px;font-size:16px">Rank plan by module</h3>
+<p class="sec-lede">Layers 0–27; ranks are listed as layer range: r. Parameters per (module, layer) = r × (in + out).</p>
+<div class="card scroll">
+<table class="score ranks">
+<thead><tr><th>Module</th><th class="num">rs128</th><th>rs_adaptive (layers: r)</th><th class="num">rs128 params</th><th class="num">Adaptive params</th><th class="num">Δ</th></tr></thead>
+<tbody>
+<tr><th>q_proj<span class="msub">1024 → 2048</span></th><td class="num">128</td><td><span class="small">0–2: 32 · 3–27: 64</span></td><td class="num">11.01 M</td><td class="num">5.21 M</td><td class="num">-5.80 M</td></tr>
+<tr><th>k_proj<span class="msub">1024 → 1024</span></th><td class="num">128</td><td><span class="small">0–2: 32 · 3–27: 48</span></td><td class="num">7.34 M</td><td class="num">2.65 M</td><td class="num">-4.69 M</td></tr>
+<tr><th>v_proj<span class="msub">1024 → 1024</span></th><td class="num">128</td><td><span class="small">0–2: 32 · 3–10: 48 · 11–17: 32 · 18–27: 48</span></td><td class="num">7.34 M</td><td class="num">2.42 M</td><td class="num">-4.92 M</td></tr>
+<tr><th>o_proj<span class="msub">2048 → 1024</span></th><td class="num">128</td><td><span class="small">0–2: 32 · 3–10: 96 · 11–17: 64 · 18–27: 96</span></td><td class="num">11.01 M</td><td class="num">6.98 M</td><td class="num">-4.03 M</td></tr>
+<tr><th>gate_proj<span class="msub">1024 → 3072</span></th><td class="num">128</td><td><span class="small">0–3: 96 · 4–7: 128 · 8–14: 192 · 15–26: 256 · 27: 128</span></td><td class="num">14.68 M</td><td class="num">22.28 M</td><td class="num">+7.60 M</td></tr>
+<tr><th>up_proj<span class="msub">1024 → 3072</span></th><td class="num">128</td><td><span class="small">0–7: 128 · 8–26: 192 · 27: 128</span></td><td class="num">14.68 M</td><td class="num">19.66 M</td><td class="num">+4.98 M</td></tr>
+<tr><th>down_proj<span class="msub">3072 → 1024</span></th><td class="num">128</td><td><span class="small">0–2: 96 · 3–25: 192 · 26: 128 · 27: 32</span></td><td class="num">14.68 M</td><td class="num">19.92 M</td><td class="num">+5.24 M</td></tr>
+<tr class="sep"><th>total</th><td></td><td><span class="small">attention 45% → 22% of the parameters; MLP 55% → 78%</span></td><td class="num">80.74 M</td><td class="num">79.13 M</td><td class="num">-1.61 M</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2><span class="num">3</span>Settings that are identical</h2>
+<div class="card scroll">
+<table class="cmp">
+<thead><tr><th>Group</th><th>Setting</th><th>Value (both runs)</th></tr></thead>
+<tbody>
+<tr><th>Model</th><td>base model</td><td>models/Qwen3-0.6B-Base</td></tr>
+<tr><th>Adapter</th><td>method / α / dropout</td><td>rsLoRA / 16 / 0.0</td></tr>
+<tr><th></th><td>adapted modules</td><td>q, k, v, o, gate, up, down in all 28 layers (no embeddings or lm_head)</td></tr>
+<tr><th>Data</th><td>corpora</td><td>cpt_data/corpus_full/{ai, replay, stem, long}, low-quality sources excluded</td></tr>
+<tr><th></th><td>train / val split</td><td>val_frac 0.01, seed 42: 833,838 train / 8,422 held-out documents</td></tr>
+<tr><th></th><td>packing</td><td>doc-masked varlen sequences of 16,384–24,576 tokens, pad_multiple 2,048, loss_chunk 4,096 (~21.8 docs per sequence)</td></tr>
+<tr><th></th><td>val sets</td><td>ai and replay: legacy fixed 64 × 2,048 blocks (<code>runs/_cpt_cache/blocks_1d520d942f93.npz</code>); stem and long: 32 packed sequences each</td></tr>
+<tr><th></th><td>replay corpus</td><td>100,083 docs, 102.2 M tokens (nothing excluded)</td></tr>
+<tr><th>Optimisation</th><td>epochs</td><td>1 (eval at 0.5 and 1.0)</td></tr>
+<tr><th></th><td>LR / schedule / warmup / weight decay</td><td>1e-4 / cosine / 3% / 0.0. Both are at LR ≈ 5.26e-5 at the 0.5-epoch eval.</td></tr>
+<tr><th></th><td>micro-batch</td><td>1 packed sequence, gradient checkpointing on, bf16</td></tr>
+<tr><th></th><td>seed</td><td>42</td></tr>
+<tr><th>Tokens seen</th><td>at the 0.5-epoch checkpoint</td><td>~460 M (rs128 460.6 M at step 6,400; adaptive 459.6 M at step 2,395)</td></tr>
+<tr><th>Evaluation</th><td>MMLU</td><td>test split, 57 subjects, 5-shot, base prompt format, n = 14,042, eval_bs 8</td></tr>
+<tr><th></th><td>AI MCQ</td><td>n = 186, 5-shot, base format</td></tr>
+<tr><th></th><td>DS-1000</td><td>n = 1,000 (828 env-valid), pass@1, eval_gen_bs 16</td></tr>
+<tr><th></th><td>SFT val loss</td><td>n = 1,000</td></tr>
+<tr><th></th><td>open QA</td><td>n = 984 over 8 audience levels, thinking off</td></tr>
+<tr><th></th><td>base reference</td><td>copied from <code>runs/cpt_qwen06b_r128_full/eval_history.json</code> (MMLU 52.49%)</td></tr>
+</tbody>
+</table>
+</div>
+
+<footer>
+  <p>Generated 2026-10-26 from <code>runs/cpt_qwen06b_{rs128_long,rs_adaptive_long}/{run_config.json,eval_history.json,train.log,lora_plan.json}</code> and the per-question prediction files in <code>eval_results/</code>. rs_adaptive_long was still training (past step 4,000 of 4,790) when this was written. Its epoch-1 result is not included.</p>
+</footer>
+</main>
+</body>
+</html>

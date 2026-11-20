@@ -1,0 +1,47 @@
+# rs_adaptive_v1_d0 at a quarter of the rank: same per-layer / per-module shape (see
+# configs/lora/cpt_qwen06b_rs_adaptive_v1_d0.yaml for why each module gets its rank), every rank / 4, so 32-256 -> 8-64
+# and 79.1 M -> 19.8 M trainable parameters (r64_300mb: 40.4 M).
+#   python -m cpt_trainer.lora_plan configs/lora/cpt_qwen06b_rs_adaptive_q4.yaml
+#
+# For a ~100 M-token CPT (r64_300mb's ai + replay + 6.8 M stem + 6.8 M long): less capacity than r64_300mb, to
+# keep the adapter from pushing against the SFT model while it still learns the domain.
+
+name: rs_adaptive_q4
+method: rslora
+alpha: 16          # kept from rs_adaptive_v1_d0: rslora scale alpha/sqrt(r) keeps the update size independent of
+                   # rank, so only the capacity changes. Scale 2.0 at r=64 (= r64/alpha128), 4.0 at r=16, 5.66 at r=8
+dropout: 0.0
+default_r: 16
+rank_bounds: [8, 64]
+targets: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+
+ranks:
+  q_proj:
+    - {layers: "0-2", r: 8}
+    - {layers: "3-27", r: 16}
+  k_proj:
+    - {layers: "0-2", r: 8}
+    - {layers: "3-27", r: 12}
+  v_proj:
+    - {layers: "0-2", r: 8}
+    - {layers: "3-10,18-27", r: 12}
+    - {layers: "11-17", r: 8}
+  o_proj:
+    - {layers: "0-2", r: 8}
+    - {layers: "3-10,18-27", r: 24}
+    - {layers: "11-17", r: 16}
+  gate_proj:
+    - {layers: "0-3", r: 24}
+    - {layers: "4-7", r: 32}
+    - {layers: "8-14", r: 48}
+    - {layers: "15-26", r: 64}
+    - {layers: "27", r: 32}
+  up_proj:
+    - {layers: "0-7", r: 32}
+    - {layers: "8-26", r: 48}
+    - {layers: "27", r: 32}
+  down_proj:
+    - {layers: "0-2", r: 24}
+    - {layers: "3-25", r: 48}
+    - {layers: "26", r: 32}
+    - {layers: "27", r: 8}

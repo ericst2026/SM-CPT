@@ -1,0 +1,48 @@
+# Training-mix recipe v0.2  (python scripts/build_training_mix.py --config configs/mix/v0.2.yaml)
+# Changes vs v0.1 come from the lora_r16_v1 evaluation (docs/AI_QA_DATASET_GUIDE.md section 5).
+version: v0.2
+
+# --- evaluation comparability ---------------------------------------------------------------
+frozen_eval: data/versions/v0.1/final/eval          # reuse v0.1 eval files unchanged
+exclude_from_train: [data/versions/v0.1/final/sft_val.jsonl]   # keep v0.1 val usable as a held-out set
+
+# --- level quality ---------------------------------------------------------------------------
+level_fix: relabel            # relabel | drop | off  (answers that do not fit their level)
+replay_system_prompt: none    # none = no level prompt for general replay data (v0.1 used general_public)
+
+# --- balancing ------------------------------------------------------------------------------
+source_cap_default: 30000
+source_caps:
+  arxiv_ml_abstracts: 4000    # dense abstract style leaked into every level in v0.1 (40k there)
+  arxiv_dl_code: 8000
+  openhermes: 15000
+  glaive_code: 8000
+  codefeedback: 6000
+  magicoder_evol: 6000
+level_caps:
+  ai_student: 45000
+  ai_researcher: 20000
+level_cap_default: 80000
+replay_ratio: 0.10
+
+# --- reasoning ------------------------------------------------------------------------------
+reasoning: think              # keep <think> traces
+max_reasoning_chars: 7000     # question+trace+answer must fit ~2048 tokens; longer traces are...
+long_reasoning: strip         # ...strip (keep the final answer, drop the trace) | drop
+rl_math_traces_to_sft: true   # turn DeepSeek-R1 solutions stored with RL math problems into SFT examples
+reasoning_source_cap: 12000   # per source, for reasoning-heavy pools
+# general (non-AI) reasoning from data/split/reasoning_sft: math derivations, Python, logic, science.
+# Share of AI SFT, filled round-robin over the categories; traces over max_reasoning_chars are dropped.
+reasoning_ratio: 0.15
+reasoning_cap_per_source: 15000
+reasoning_categories: [math, code, logic, science, general]
+
+# --- RL routing ------------------------------------------------------------------------------
+mcq_rl_fraction: 0.5          # MCQ items with a known letter: this share goes to rl_mcq.jsonl, rest stays SFT
+rl_math_cap: 60000
+rl_code_cap: 30000
+rl_mcq_cap: 30000
+
+val_frac: 0.02
+langs: [en]
+seed: 0

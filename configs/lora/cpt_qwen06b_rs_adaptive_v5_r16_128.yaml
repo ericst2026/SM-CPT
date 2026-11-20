@@ -1,0 +1,45 @@
+# rs_adaptive_v4_r64_512 (configs/lora/cpt_qwen06b_rs_adaptive_v4_r64_512.yaml, ranks 64-512, 158 M params) with EVERY
+# rank divided by 4: 16-128 (~40 M params). Requested 2026-11-11 for the RETRO-fit + LoRA experiment
+# (configs/retro/retro_qwen06b_v1.yaml): the retrieval layers carry the domain knowledge from the database, so the
+# LoRA only has to adapt the frozen decoder to the retrieval layers and the domain, not memorise the domain.
+# Same method (rslora), alpha, dropout, targets and layer bands as v4 / v1_d0; the per-layer rationale is in v4.
+#   python -m cpt_trainer.lora_plan configs/lora/cpt_qwen06b_rs_adaptive_v5_r16_128.yaml
+
+name: rs_adaptive_v5_r16_128
+method: rslora
+alpha: 16          # rslora scale = alpha/sqrt(r): 4.0 at r=16, 2.0 at r=64, 1.41 at r=128 (same alpha as v4)
+dropout: 0.0
+default_r: 32
+rank_bounds: [16, 128]
+targets: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+
+ranks:
+  q_proj:
+    - {layers: "0-2", r: 16}
+    - {layers: "3-27", r: 32}
+  k_proj:
+    - {layers: "0-2", r: 16}
+    - {layers: "3-27", r: 24}
+  v_proj:
+    - {layers: "0-2", r: 16}
+    - {layers: "3-10,18-27", r: 24}
+    - {layers: "11-17", r: 16}
+  o_proj:
+    - {layers: "0-2", r: 16}
+    - {layers: "3-10,18-27", r: 48}
+    - {layers: "11-17", r: 32}
+  gate_proj:
+    - {layers: "0-3", r: 48}
+    - {layers: "4-7", r: 64}
+    - {layers: "8-14", r: 96}
+    - {layers: "15-26", r: 128}
+    - {layers: "27", r: 64}
+  up_proj:
+    - {layers: "0-7", r: 64}
+    - {layers: "8-26", r: 96}
+    - {layers: "27", r: 64}
+  down_proj:
+    - {layers: "0-2", r: 48}
+    - {layers: "3-25", r: 96}
+    - {layers: "26", r: 64}
+    - {layers: "27", r: 16}
